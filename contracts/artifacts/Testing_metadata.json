@@ -1,0 +1,175 @@
+{
+	"compiler": {
+		"version": "0.4.23+commit.124ca40d"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"constant": false,
+				"inputs": [
+					{
+						"name": "s",
+						"type": "uint256"
+					},
+					{
+						"name": "m",
+						"type": "uint256"
+					},
+					{
+						"name": "l",
+						"type": "uint256"
+					}
+				],
+				"name": "calcCoffeeTotal",
+				"outputs": [
+					{
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"payable": false,
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"constant": true,
+				"inputs": [],
+				"name": "cup",
+				"outputs": [
+					{
+						"name": "",
+						"type": "uint8"
+					}
+				],
+				"payable": false,
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"constant": true,
+				"inputs": [
+					{
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"name": "studentClass",
+				"outputs": [
+					{
+						"name": "id",
+						"type": "uint256"
+					},
+					{
+						"name": "fName",
+						"type": "string"
+					},
+					{
+						"name": "lName",
+						"type": "string"
+					}
+				],
+				"payable": false,
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"constant": false,
+				"inputs": [
+					{
+						"name": "vnum",
+						"type": "uint256"
+					},
+					{
+						"name": "fName",
+						"type": "string"
+					},
+					{
+						"name": "lName",
+						"type": "string"
+					}
+				],
+				"name": "addStudent",
+				"outputs": [],
+				"payable": false,
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"constant": true,
+				"inputs": [],
+				"name": "coffee_total",
+				"outputs": [
+					{
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"payable": false,
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"constant": true,
+				"inputs": [],
+				"name": "get_counter",
+				"outputs": [
+					{
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"payable": false,
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"constant": false,
+				"inputs": [
+					{
+						"name": "_counter",
+						"type": "uint256"
+					}
+				],
+				"name": "set_counter",
+				"outputs": [],
+				"payable": false,
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"payable": false,
+				"stateMutability": "nonpayable",
+				"type": "constructor"
+			}
+		],
+		"devdoc": {
+			"methods": {}
+		},
+		"userdoc": {
+			"methods": {}
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"contracts/nolan.sol": "Testing"
+		},
+		"evmVersion": "byzantium",
+		"libraries": {},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"contracts/nolan.sol": {
+			"keccak256": "0x44ac9c59337f43b35ea53b0a00a08aa023626ec1acb4858c7b991f6b019bd33c",
+			"urls": [
+				"bzzr://9bc632ad78215e0da2da48df78f93e71588f8b1105730f3fe17e8d6cc90394a6"
+			]
+		}
+	},
+	"version": 1
+}
