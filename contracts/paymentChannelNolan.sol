@@ -1,95 +1,108 @@
-pragma solidity ^0.4.20;
+pragma solidity ^0.4.0;
 
-contract SimplePaymentChannel {
-    address public sender;     // The account sending payments.
-    address public recipient;  // The account receiving the payments.
-    uint256 public expiration; // Timeout in case the recipient never closes.
+contract PaymentChannel {
 
-    function SimplePaymentChannel(address _recipient, uint256 duration)
-        public
-        payable
+  address public messageSender;
+  address public messageReceiver;
+  uint public contractEndTime;
+  uint256 public messageValue;
+  bytes32 public merkleTreeRoot;
+  uint256 public sendAmount;
+
+  //State Machine
+  enum States {HandShake,Accepting,InTransfer}
+  States state; 
+
+  event TransferComplete(uint amountTransferred);
+  event TransferFailed(uint amountTransferred);
+
+  modifier checkMessageSender(){
+    require(msg.sender == messageSender, "You are not the correct sender.");
+    _;
+  }
+
+  modifier checkMessageReceiver() {
+    require(msg.sender == messageReceiver, "You are not the correct receiver.");
+    _;
+  }
+
+  modifier checkTime() {
+    require(now > contractEndTime, "Time out not expired yet, can't refund.");
+    _;
+  }
+
+  modifier checkState(States _state) {
+    require (state == _state, "Invalid State");
+    _;
+  }
+
+  //Constructor
+  constructor() public
+  {
+    messageSender = msg.sender;
+    state = States.HandShake;
+    sendAmount = 0;
+  }
+
+  function handShake(address _messageReceiver, uint _validityTime, uint256 _messageValue, bytes32 _merkleTreeRoot) public
+    payable
+    checkMessageSender
+    checkState(States.HandShake)
+  {
+    messageReceiver = _messageReceiver;
+    require(now < now + _validityTime * 1 minutes, "Handsake duration invalid");
+    contractEndTime = now + _validityTime * 1 minutes;
+    messageValue = _messageValue;
+    merkleTreeRoot = _merkleTreeRoot;
+    state = States.Accepting;
+  }
+
+  function claim(bytes32 _message, uint256 _totalMicroPayments) public payable
+    checkMessageReceiver
+    checkState(States.Accepting)
+  {
+    state = States.InTransfer;
+
+    bytes32 scratch = _message;
+    for (uint256 i = 1; i <= _totalMicroPayments; i++){
+      scratch = keccak256(abi.encodePacked(scratch));
+    }
+
+    if(scratch != merkleTreeRoot) {
+      state = States.Accepting;
+      emit TransferFailed(sendAmount);
+      revert();
+    }
+
+    sendAmount = _totalMicroPayments * messageValue;
+    
+    if (msg.sender.send(sendAmount)) {
+      emit TransferComplete(sendAmount);
+      selfdestruct(messageSender);
+     }
+    else{
+      emit TransferFailed(sendAmount);
+      state = States.Accepting;
+     }
+    
+  }
+
+  function renew(uint _validityTime) public
+    checkMessageSender
+    checkState(States.Accepting)
     {
-        sender = msg.sender;
-        recipient = _recipient;
-        expiration = now + duration;
+      require(contractEndTime < contractEndTime + _validityTime * 1 minutes, "Cant renew, invalid new expiration");
+      contractEndTime += _validityTime * 1 minutes;
     }
 
-    function isValidSignature(uint256 amount, bytes signature)
-        internal
-        view
-        returns (bool)
+  function refund() public
+    checkMessageSender
+    checkTime
+    checkState(States.Accepting)
     {
-        bytes32 message = prefixed(keccak256(this, amount));
-
-        // Check that the signature is from the payment sender.
-        return recoverSigner(message, signature) == sender;
+      selfdestruct(messageSender);
     }
 
-    // The recipient can close the channel at any time by presenting a signed
-    // amount from the sender. The recipient will be sent that amount, and the
-    // remainder will go back to the sender.
-    function close(uint256 amount, bytes signature) public {
-        require(msg.sender == recipient);
-        require(isValidSignature(amount, signature));
+  function() public payable { }
 
-        recipient.transfer(amount);
-        selfdestruct(sender);
-    }
-
-    // The sender can extend the expiration at any time.
-    function extend(uint256 newExpiration) public {
-        require(msg.sender == sender);
-        require(newExpiration > expiration);
-
-        expiration = newExpiration;
-    }
-
-    // If the timeout is reached without the recipient closing the channel, then
-    // the ether is released back to the sender.
-    function claimTimeout() public {
-        require(now >= expiration);
-        selfdestruct(sender);
-    }
-
-    function splitSignature(bytes sig)
-        internal
-        pure
-        returns (uint8, bytes32, bytes32)
-    {
-        require(sig.length == 65);
-
-        bytes32 r;
-        bytes32 s;
-        uint8 v;
-
-        assembly {
-            // first 32 bytes, after the length prefix
-            r := mload(add(sig, 32))
-            // second 32 bytes
-            s := mload(add(sig, 64))
-            // final byte (first byte of the next 32 bytes)
-            v := byte(0, mload(add(sig, 96)))
-        }
-
-        return (v, r, s);
-    }
-
-    function recoverSigner(bytes32 message, bytes sig)
-        internal
-        pure
-        returns (address)
-    {
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-
-        (v, r, s) = splitSignature(sig);
-
-        return ecrecover(message, v, r, s);
-    }
-
-    // Builds a prefixed hash to mimic the behavior of eth_sign.
-    function prefixed(bytes32 hash) internal pure returns (bytes32) {
-        return keccak256("\x19Ethereum Signed Message:\n32", hash);
-    }
 }
