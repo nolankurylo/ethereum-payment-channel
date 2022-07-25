@@ -1,13 +1,13 @@
-pragma solidity ^0.4.0;
+pragma solidity ^0.5.1;
 
 contract PaymentChannel {
 
-  address public messageSender;
-  address public messageReceiver;
+  address payable public messageSender;
+  address payable public messageReceiver;
   uint public contractEndTime;
   uint256 public messageValue;
   bytes32 public merkleTreeRoot;
-  uint256 public sendAmount;
+  uint256 public maxSendAmount;
 
   //State Machine
   enum States {HandShake,Accepting,InTransfer}
@@ -37,14 +37,21 @@ contract PaymentChannel {
   }
 
   //Constructor
-  constructor() public
+  constructor() public payable
   {
     messageSender = msg.sender;
     state = States.HandShake;
-    sendAmount = 0;
+    maxSendAmount = msg.value * 1000000000000000000; // in ether
   }
 
-  function handShake(address _messageReceiver, uint _validityTime, uint256 _messageValue, bytes32 _merkleTreeRoot) public
+  /**
+  * @dev Function for MessageSender to initiate payment channel between MessageSender and MessageReceiver
+  * @param _messageReceiver address of receipient
+  * @param _validityTime number of minutes before the contract expires 
+  * @param _messageValue how much each micropayment is worth
+  * @param _merkleTreeRoot hash of merkle tree root from sender
+  */
+  function handShake(address payable _messageReceiver, uint _validityTime, uint256 _messageValue, bytes32 _merkleTreeRoot) public
     payable
     checkMessageSender
     checkState(States.HandShake)
@@ -57,24 +64,32 @@ contract PaymentChannel {
     state = States.Accepting;
   }
 
-  function claim(bytes32 _message, uint256 _totalMicroPayments) public payable
+
+  /**
+  * @dev Function for MessageReceiver to close payment channel and collect the Ether from MessageSender
+  * @param _microPaymentHash hash of micropayment from sender
+  * @param _microPaymentNumber which micropayment
+  */
+  function claim(bytes32 _microPaymentHash, uint256 _microPaymentNumber) public payable
     checkMessageReceiver
     checkState(States.Accepting)
   {
     state = States.InTransfer;
 
-    bytes32 scratch = _message;
-    for (uint256 i = 1; i <= _totalMicroPayments; i++){
-      scratch = keccak256(abi.encodePacked(scratch));
+    bytes32 hash = _microPaymentHash;
+    for (uint256 i = 1; i <= _microPaymentNumber; i++){
+      hash = keccak256(abi.encodePacked(hash));
     }
 
-    if(scratch != merkleTreeRoot) {
+    if(hash != merkleTreeRoot) {
       state = States.Accepting;
-      emit TransferFailed(sendAmount);
+      emit TransferFailed(maxSendAmount);
       revert();
     }
 
-    sendAmount = _totalMicroPayments * messageValue;
+    uint sendAmount = _microPaymentNumber * messageValue * 1000000000000000000;
+    require(sendAmount <= maxSendAmount, "Trying to send more than what was defined at contract deployment");
+
     
     if (msg.sender.send(sendAmount)) {
       emit TransferComplete(sendAmount);
@@ -87,14 +102,21 @@ contract PaymentChannel {
     
   }
 
-  function renew(uint _validityTime) public
+  /**
+  * @dev Function for MessageSender to extend the expiration time of the contract
+  * @param _validityTime number of minutes to add to contract's current exipiration time
+  */
+  function updateExpiration(uint _validityTime) public
     checkMessageSender
     checkState(States.Accepting)
     {
-      require(contractEndTime < contractEndTime + _validityTime * 1 minutes, "Cant renew, invalid new expiration");
+      require(contractEndTime < contractEndTime + _validityTime * 1 minutes, "Can't update to new expiration, invalid new expiration");
       contractEndTime += _validityTime * 1 minutes;
     }
 
+  /**
+  * @dev Function for MessageSender to obtain a refund if the contract has expired and the MessageReceiver has not collected payment
+  */
   function refund() public
     checkMessageSender
     checkTime
@@ -103,6 +125,6 @@ contract PaymentChannel {
       selfdestruct(messageSender);
     }
 
-  function() public payable { }
+  
 
 }
