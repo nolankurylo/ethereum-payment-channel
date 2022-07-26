@@ -1,4 +1,10 @@
-pragma solidity ^0.5.1;
+/**
+* @title ECE496A Term Project - PaymentChannel
+* @dev An efficient Ethereum payment channel via micropayments
+* @SPDX-License-Identifier: UNLICENSED
+*/
+
+pragma solidity ^0.8.1;
 
 contract PaymentChannel {
 
@@ -27,7 +33,7 @@ contract PaymentChannel {
   }
 
   modifier checkTime() {
-    require(now > contractEndTime, "Time out not expired yet, can't refund.");
+    require(block.timestamp > contractEndTime, "Time out not expired yet, can't refund.");
     _;
   }
 
@@ -37,9 +43,9 @@ contract PaymentChannel {
   }
 
   //Constructor
-  constructor() public payable
+  constructor() payable
   {
-    messageSender = msg.sender;
+    messageSender = payable(msg.sender);
     state = States.HandShake;
     maxSendAmount = msg.value * 1000000000000000000; // in ether
   }
@@ -57,8 +63,8 @@ contract PaymentChannel {
     checkState(States.HandShake)
   {
     messageReceiver = _messageReceiver;
-    require(now < now + _validityTime * 1 minutes, "Handsake duration invalid");
-    contractEndTime = now + _validityTime * 1 minutes;
+    require(block.timestamp < block.timestamp + _validityTime * 1 minutes, "Handsake duration invalid");
+    contractEndTime = block.timestamp + _validityTime * 1 minutes;
     messageValue = _messageValue;
     merkleTreeRoot = _merkleTreeRoot;
     state = States.Accepting;
@@ -91,7 +97,7 @@ contract PaymentChannel {
     require(sendAmount <= maxSendAmount, "Trying to send more than what was defined at contract deployment");
 
     
-    if (msg.sender.send(sendAmount)) {
+    if (messageReceiver.send(sendAmount)) {
       emit TransferComplete(sendAmount);
       selfdestruct(messageSender);
      }

@@ -1,14 +1,21 @@
 (async () => {
   try {
     console.log('Deploy...')
-    const accounts = await web3.eth.getAccounts()
-    // Note that the script needs the ABI which is generated from the compilation artifact.
-    const metadata = JSON.parse(await remix.call('fileManager', 'getFile', 'contracts/artifacts/PaymentChannel_metadata.json'))
     
-    let senderAccount = accounts[2]
-    let receiverAccount = accounts[3]
+    // Note that the script needs the ABI which is generated from the compilation artifact.
+    const metadata = JSON.parse(await remix.call('fileManager', 'getFile', 'contracts/artifacts/PaymentChannel.json'))
+    const accounts = await web3.eth.getAccounts()
 
+    let senderAccount = accounts[5]
+    let receiverAccount = accounts[6]
 
+    let senderBalance = await web3.eth.getBalance(senderAccount);
+    let senderWallet = web3.utils.fromWei(senderBalance, "ether");
+
+    var receiverBalance = await web3.eth.getBalance(receiverAccount);
+    var receiverWallet = web3.utils.fromWei(receiverBalance, "ether");
+
+    let EXPIRATION_TIME = 3 // 3 minutes contract duration
     let MESSAGE = "mysecret"
     let NUMBER_MICRO_PAYMENTS = 10
     let MICRO_PAYMENT_VALUE = 1
@@ -16,26 +23,28 @@
 
 
     console.log(`Sender: ${senderAccount}, Receiver: ${receiverAccount}`)
+    console.log(`BEFORE CONTRACT DEPLOYMENT: SenderBalance: ${senderWallet}, ReceiverBalance: ${receiverWallet}`)
     console.log(`Message to encrypt: ${MESSAGE}`)
 
+    // Create the Merkle Tree
+    merkleTree = {}
 
-    console.log(`The PayMessages from ${NUMBER_MICRO_PAYMENTS} to 1 are:`);
-    var hashScratch = web3.utils.sha3(MESSAGE, {encoding: 'ascii'});
-    console.log(`${NUMBER_MICRO_PAYMENTS}: ${hashScratch}`);
+    var messageHash = web3.utils.sha3(MESSAGE, {encoding: 'ascii'});
+
+    merkleTree[NUMBER_MICRO_PAYMENTS] = messageHash
 
     for(var i = 1; i < NUMBER_MICRO_PAYMENTS; i++) {
-      hashScratch = web3.utils.sha3(hashScratch, {encoding: 'hex'});
-      console.log(`${NUMBER_MICRO_PAYMENTS-i}: ${hashScratch}`);
+      messageHash = web3.utils.sha3(messageHash, {encoding: 'hex'});
+      merkleTree[NUMBER_MICRO_PAYMENTS-i] = messageHash
     }
 
-    merkleTreeRoot = web3.utils.sha3(hashScratch, {encoding: 'hex'});
+    merkleTree['root'] = web3.utils.sha3(messageHash, {encoding: 'hex'});
 
-    console.log(`The MerkleRoot is: ${merkleTreeRoot}`);
+    console.log(`The MerkleRoot is: ${merkleTree['root']}`);
     console.log(`The total value to be held by the contract is: ${TOTAL_PAYMENT_VALUE} ether`);
     
     
     let contract = new web3.eth.Contract(metadata.abi)
-
     contract = contract.deploy({
       data: metadata.data.bytecode.object,
       arguments: []
@@ -43,15 +52,34 @@
 
     newContractInstance = await contract.send({
       from: senderAccount,
-      // value: TOTAL_PAYMENT_VALUE * 1000000000000000000
+      value: TOTAL_PAYMENT_VALUE * 1000000000000000000
+
     })
 
-    // await contract.methods.handShake(receiverAccount, 100, 1, merkleTreeRoot).send({
-    //   from: senderAccount
-    // })
+    // Initiate contract
+    await newContractInstance.methods.handShake(receiverAccount, EXPIRATION_TIME, MICRO_PAYMENT_VALUE, merkleTree['root']).send({
+      from: senderAccount
+    })
     
-    console.log(`Contract Address: ${newContractInstance.options.address}`)
-    console.log(newContractInstance.methods)
+    // Sender creates micropayments, pick one to send to receiver
+    microPaymentToSend = randomMicroPayment(1, NUMBER_MICRO_PAYMENTS);
+    console.log(`Random micropayment to send is: ${microPaymentToSend}`)
+  
+
+    // Initiate contract
+    await newContractInstance.methods.claim(merkleTree[microPaymentToSend], microPaymentToSend).send({
+      from: receiverAccount
+    })
+    
+    senderBalance = await web3.eth.getBalance(senderAccount);
+    senderWallet = web3.utils.fromWei(senderBalance, "ether");
+
+    var receiverBalance = await web3.eth.getBalance(receiverAccount);
+    var receiverWallet = web3.utils.fromWei(receiverBalance, "ether");
+    console.log(`\nAFTER CONTRACT TERMINATION: SenderBalance: ${senderWallet} ETHER, ReceiverBalance: ${receiverWallet} ETHER`)
+    
+    
+    
 
 
 
@@ -64,3 +92,8 @@
   }
 })()
 
+
+
+function randomMicroPayment(min, max) { // min and max included 
+  return Math.floor(Math.random() * (max - min + 1) + min)
+}
