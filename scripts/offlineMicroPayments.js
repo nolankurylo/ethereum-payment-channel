@@ -2,7 +2,7 @@
   try {
 
     // USER DEFINED INPUT ----------------------------------------------------------
-    let MESSAGE = "sdfgsdfsd"
+    let MESSAGE = "CoolProject"
     let NUMBER_MICRO_PAYMENTS = 10 // unknown to reciever
     let MICRO_PAYMENT_VALUE = 1 // unknown to reciever
     let TOTAL_PAYMENT_VALUE = NUMBER_MICRO_PAYMENTS * MICRO_PAYMENT_VALUE
@@ -12,8 +12,8 @@
     const metadata = JSON.parse(await remix.call('fileManager', 'getFile', 'contracts/artifacts/PaymentChannel.json'))
     const accounts = await web3.eth.getAccounts()
 
-    let senderAccount = accounts[1]
-    let receiverAccount = accounts[2]
+    let senderAccount = accounts[6]
+    let receiverAccount = accounts[7]
 
     let senderBalance = await web3.eth.getBalance(senderAccount);
     let senderWallet = web3.utils.fromWei(senderBalance, "ether");

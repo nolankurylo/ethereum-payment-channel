@@ -50,7 +50,7 @@ contract PaymentChannel {
   constructor(uint256 _messageValue) payable
   { 
     require(msg.value > 0, "Need an amount to hold in escrow.");
-    contractEscrowedValue = msg.value;
+    contractEscrowedValue = msg.value / 1000000000000000000;
     messageSender = payable(msg.sender);
     messageValue = _messageValue;
     state = States.HandShake;
@@ -93,12 +93,12 @@ contract PaymentChannel {
 
     if(hash != merkleTreeRoot) {
       state = States.Accepting;
-      emit TransferFailed(contractEscrowedValue);
       revert();
+      emit TransferFailed(contractEscrowedValue);
     }
 
     uint sendAmount = _microPaymentNumber * messageValue * 1000000000000000000;
-    require(sendAmount <= contractEscrowedValue, "Trying to send more than what was defined at contract deployment");
+    require(sendAmount <= contractEscrowedValue * 1000000000000000000, "Trying to send more than what was defined at contract deployment");
 
     
     if (messageReceiver.send(sendAmount)) {
